@@ -2,20 +2,30 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import matplotlib as mpl
+import os
+import urllib.request
+import matplotlib.font_manager as fm
 
-# --- ส่วนที่แก้ไขใหม่: ตั้งค่าฟอนต์ภาษาไทยแบบครอบคลุม ---
-# กำหนดรายชื่อฟอนต์ภาษาไทยยอดฮิตเผื่อไว้หลายๆ ตัว (รองรับทั้ง Windows และ Mac)
-plt.rcParams['font.family'] = 'sans-serif'
-plt.rcParams['font.sans-serif'] = ['Tahoma', 'Leelawadee UI', 'Leelawadee', 'Thonburi', 'Cordia New', 'Arial Unicode MS']
+# --- ส่วนที่แก้ไขใหม่ (ท่าไม้ตาย): ดาวน์โหลดและบังคับใช้ฟอนต์ภาษาไทย 100% ---
+# 1. กำหนดลิงก์ดาวน์โหลดฟอนต์ Prompt จาก Google Fonts
+font_url = "https://github.com/google/fonts/raw/main/ofl/prompt/Prompt-Regular.ttf"
+font_path = "Prompt-Regular.ttf"
+
+# 2. ตรวจสอบว่าในโฟลเดอร์มีไฟล์ฟอนต์หรือยัง ถ้ายังไม่มีให้ดาวน์โหลดอัตโนมัติ
+if not os.path.exists(font_path):
+    urllib.request.urlretrieve(font_url, font_path)
+
+# 3. บังคับยัดฟอนต์นี้เข้าไปในสมองของ Matplotlib และตั้งค่าให้ใช้งาน
+fm.fontManager.addfont(font_path)
+plt.rcParams['font.family'] = 'Prompt' 
 plt.rcParams['figure.dpi'] = 200 # เพิ่มความคมชัด (Resolution)
 # --------------------------------------------------------
 
-# (โค้ดส่วนอื่นๆ ตั้งแต่ st.set_page_config... คงไว้เหมือนเดิมทั้งหมดได้เลยครับ)
-# ตั้งค่าหน้าเว็บ
+# ตั้งค่าหน้าเว็บ (โค้ดส่วนนี้และด้านล่างลงไป คงไว้เหมือนเดิมได้เลยครับ)
 st.set_page_config(page_title="ระบบวิเคราะห์ชุดข้อมูล", layout="wide")
 st.title("📊 ระบบวิเคราะห์ชุดข้อมูลและสถิติ")
 
+# ... (โค้ดส่วนอื่นๆ คงเดิม) ...
 # 1. ส่วนรับไฟล์จากผู้ใช้งาน (File Uploader)
 st.sidebar.header("นำเข้าข้อมูล")
 uploaded_file = st.sidebar.file_uploader("อัปโหลดไฟล์ (CSV หรือ Excel)", type=['csv', 'xlsx'])
