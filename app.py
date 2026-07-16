@@ -3,6 +3,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+# --- ส่วนที่เพิ่มใหม่: ตั้งค่าฟอนต์ภาษาไทยและเพิ่มความละเอียด ---
+plt.rcParams['font.family'] = 'Tahoma' 
+plt.rcParams['figure.dpi'] = 200 # เพิ่มความคมชัด (Resolution)
+# --------------------------------------------------------
+
 # ตั้งค่าหน้าเว็บ
 st.set_page_config(page_title="ระบบวิเคราะห์ชุดข้อมูล", layout="wide")
 st.title("📊 ระบบวิเคราะห์ชุดข้อมูลและสถิติ")
@@ -51,30 +56,60 @@ if uploaded_file is not None:
         # 3. การวิเคราะห์ความน่าจะเป็นและกราฟ
         st.subheader("📊 วิเคราะห์เจาะลึกและกราฟ")
         
-        # ให้ผู้ใช้เลือกคอลัมน์ที่ต้องการวิเคราะห์
-        selected_col = st.selectbox("เลือกตัวแปร (Column) ที่ต้องการวิเคราะห์:", df.columns)
+        # --- ระบบกรองคอลัมน์ที่ไม่ต้องการ ---
+        # คำที่เราไม่อยากให้แสดงผลในตัวเลือกกราฟ (แก้ไขหรือพิมพ์เพิ่มในวงเล็บนี้ได้เลย)
+        ignore_keywords = ['id', 'รหัส', 'ลำดับ', 'จำนวน', 'no.', 'index']
+        
+        # กรองคอลัมน์ โดยแปลงชื่อคอลัมน์เป็นตัวพิมพ์เล็กก่อนเพื่อเช็คคำต้องห้าม
+        valid_columns = [
+            col for col in df.columns 
+            if not any(keyword in str(col).lower() for keyword in ignore_keywords)
+        ]
+        
+        # ป้องกัน Error กรณีที่ไฟล์มีแต่คอลัมน์ที่โดนกรองทิ้งหมด
+        if len(valid_columns) == 0:
+            valid_columns = df.columns
+            
+        # ใช้คอลัมน์ที่ผ่านการกรองแล้วมาแสดงเป็นตัวเลือก
+        selected_col = st.selectbox("เลือกตัวแปร (Column) ที่ต้องการวิเคราะห์:", valid_columns)
 
-        fig, ax = plt.subplots(figsize=(8, 4))
+        # --- การตั้งค่ากราฟความละเอียดสูง ---
+        # figsize: ขยายขนาดความกว้าง-สูงของกราฟ
+        # dpi: เพิ่มความละเอียดเม็ดพิกเซล (ยิ่งเยอะยิ่งชัด)
+        fig, ax = plt.subplots(figsize=(10, 5), dpi=200)
 
-        # ตรวจสอบประเภทข้อมูลเพื่อวาดกราฟที่เหมาะสม
+        # ตรวจสอบประเภทข้อมูลเพื่อวาดกราฟ
         if df[selected_col].dtype == 'object' or df[selected_col].dtype == 'bool':
-            # ข้อมูลแบบหมวดหมู่ (Categorical) -> สร้าง Bar Chart แสดงความถี่และความน่าจะเป็น
+            # ข้อมูลแบบหมวดหมู่ (Categorical) -> สร้าง Bar Chart
             value_counts = df[selected_col].value_counts()
             probabilities = df[selected_col].value_counts(normalize=True) * 100
             
             sns.barplot(x=value_counts.index, y=value_counts.values, ax=ax, palette="viridis")
-            ax.set_title(f"ความถี่ของ {selected_col}")
-            ax.set_ylabel("จำนวน (Count)")
+            
+            ax.set_title(f"ความถี่ของข้อมูล: {selected_col}", fontsize=14, fontweight='bold')
+            ax.set_ylabel("ความถี่ (Count)", fontsize=12)
+            ax.set_xlabel(selected_col, fontsize=12)
+            
+            # หมุนข้อความแกน X เพื่อไม่ให้ตัวหนังสือทับกัน กรณีชื่อหมวดหมู่ยาว
+            plt.xticks(rotation=45, ha='right')
+            
+            # เพิ่มตัวเลขบอกจำนวนกำกับไว้ด้านบนของกราฟแท่งแต่ละอัน
+            for i, v in enumerate(value_counts.values):
+                ax.text(i, v + (max(value_counts.values) * 0.02), str(v), ha='center', fontsize=10)
+
             st.pyplot(fig)
             
             st.write("**สัดส่วน / ความน่าจะเป็น (Probability):**")
             st.dataframe(probabilities.rename("ความน่าจะเป็น (%)"))
             
         else:
-            # ข้อมูลแบบตัวเลข (Numerical) -> สร้าง Histogram พร้อมเส้นโค้งการแจกแจงความน่าจะเป็น (KDE)
-            sns.histplot(df[selected_col], kde=True, ax=ax, color="blue")
-            ax.set_title(f"การแจกแจงความน่าจะเป็นของ {selected_col}")
-            ax.set_ylabel("ความถี่")
+            # ข้อมูลแบบตัวเลข (Numerical) -> สร้าง Histogram
+            # bins=20 คือซอยความถี่ให้ละเอียดขึ้นเป็น 20 แท่ง
+            sns.histplot(df[selected_col], kde=True, ax=ax, color="blue", bins=20)
+            
+            ax.set_title(f"การแจกแจงความน่าจะเป็นของ: {selected_col}", fontsize=14, fontweight='bold')
+            ax.set_ylabel("ความถี่", fontsize=12)
+            ax.set_xlabel(selected_col, fontsize=12)
             st.pyplot(fig)
 
     except Exception as e:
