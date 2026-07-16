@@ -55,35 +55,31 @@ if uploaded_file is not None:
 
         st.markdown("---")
 
-        # 2. การวิเคราะห์สถิติเบื้องต้น (ปรับปรุงให้อ่านง่าย)
+        # 2. การวิเคราะห์สถิติเบื้องต้น
         st.subheader("📈 สถิติเชิงพรรณนา (Descriptive Statistics)")
         
         desc_df = df.describe()
         if not desc_df.empty:
-            # เปลี่ยนชื่อแถวให้เป็นภาษาไทยให้อ่านง่าย
             index_mapping = {
                 'count': 'จำนวนข้อมูล (Count)',
                 'mean': 'ค่าเฉลี่ย (Mean)',
                 'std': 'ค่าเบี่ยงเบนมาตรฐาน (SD)',
                 'min': 'ค่าน้อยที่สุด (Min)',
                 '25%': 'เปอร์เซ็นไทล์ที่ 25 (Q1)',
-                '50%': 'ค่ามัธยฐาน (Median)',
+                '50%': 'ค่ากึ่งกลาง/มัธยฐาน (Median)',
                 '75%': 'เปอร์เซ็นไทล์ที่ 75 (Q3)',
                 'max': 'ค่ามากที่สุด (Max)'
             }
             desc_df = desc_df.rename(index=index_mapping)
-            
-            # แต่งตารางให้ใส่ลูกน้ำ (,) และมีทศนิยม 2 ตำแหน่ง
             st.dataframe(desc_df.style.format("{:,.2f}"), use_container_width=True)
         else:
             st.info("ไม่พบคอลัมน์ที่เป็นตัวเลขสำหรับคำนวณสถิติ")
 
         st.markdown("---")
 
-        # 3. การวิเคราะห์ความน่าจะเป็นและกราฟ
+        # 3. การวิเคราะห์เจาะลึกและกราฟ (ปรับโฉมให้อ่านง่าย)
         st.subheader("📊 วิเคราะห์เจาะลึกและกราฟ")
         
-        # ระบบกรองคอลัมน์ที่ไม่ต้องการ
         ignore_keywords = ['id', 'รหัส', 'ลำดับ', 'จำนวน', 'no.', 'index', 'วันที่', 'date', 'เวลา', 'time', 'เดือน', 'ปี', 'year']
         
         valid_columns = [
@@ -96,50 +92,77 @@ if uploaded_file is not None:
             
         selected_col = st.selectbox("เลือกตัวแปร (Column) ที่ต้องการวิเคราะห์:", valid_columns)
 
+        # แปลงชื่อคอลัมน์ให้อ่านง่ายขึ้น (ตัด _ ออก และพิมพ์ใหญ่ตัวหน้า)
+        readable_col = str(selected_col).replace('_', ' ').title()
+
         fig, ax = plt.subplots(figsize=(10, 5), dpi=200)
 
-        # ตรวจสอบประเภทข้อมูล (ดักจับทั้งแบบข้อความและหมวดหมู่)
+        # ตรวจสอบประเภทข้อมูล
         if str(df[selected_col].dtype) in ['object', 'bool', 'category', 'string']:
-            # ข้อมูลแบบหมวดหมู่ (Categorical) -> สร้าง Bar Chart
+            # --- สร้าง Bar Chart สำหรับข้อมูลแบบข้อความ/หมวดหมู่ ---
             value_counts = df[selected_col].value_counts()
             probabilities = df[selected_col].value_counts(normalize=True) * 100
             
             sns.barplot(x=value_counts.index, y=value_counts.values, ax=ax, palette="viridis")
             
-            ax.set_title(f"ความถี่ของข้อมูล: {selected_col}", fontsize=14, fontweight='bold')
-            ax.set_ylabel("ความถี่ (Count)", fontsize=12)
-            ax.set_xlabel(selected_col, fontsize=12)
+            ax.set_title(f"สัดส่วนของข้อมูล: {readable_col}", fontsize=14, fontweight='bold')
+            ax.set_ylabel("จำนวน (ครั้ง)", fontsize=12)
+            ax.set_xlabel(readable_col, fontsize=12)
+            ax.grid(axis='y', linestyle='--', alpha=0.5) # เพิ่มเส้นตารางบางๆ ให้อ่านค่าแนวนอนง่ายขึ้น
             
             plt.xticks(rotation=45, ha='right')
             
-            # --- เพิ่มตัวเลขพร้อมลูกน้ำ (,) บนกราฟแท่ง ---
+            # ใส่ตัวเลขบนกราฟ
             for i, v in enumerate(value_counts.values):
                 ax.text(i, v + (max(value_counts.values) * 0.02), f"{v:,}", ha='center', va='bottom', fontsize=10)
 
             st.pyplot(fig)
             
-            st.write("**สัดส่วน / ความน่าจะเป็น (Probability):**")
-            # แสดงตารางสัดส่วนแบบทศนิยม 2 ตำแหน่ง พร้อมใส่เครื่องหมาย %
-            st.dataframe(probabilities.rename("ความน่าจะเป็น (%)").to_frame().style.format("{:,.2f}%"))
+            # เพิ่มคำอธิบายภาษาคน
+            top_1 = value_counts.index[0]
+            top_1_val = value_counts.values[0]
+            top_1_pct = probabilities.values[0]
+            
+            st.markdown("### 💡 สรุปสิ่งที่พบ (Insight)")
+            st.success(f"**{top_1}** คือข้อมูลที่พบมากที่สุดเป็นอันดับ 1 ในหมวดหมู่นี้ โดยพบทั้งหมด **{top_1_val:,} ครั้ง** (คิดเป็น **{top_1_pct:,.2f}%** ของข้อมูลทั้งหมด)")
+            
+            st.write("**ตารางสัดส่วน / ความน่าจะเป็น (Probability):**")
+            st.dataframe(probabilities.rename("สัดส่วน (%)").to_frame().style.format("{:,.2f}%"))
             
         else:
-            # ข้อมูลแบบตัวเลข (Numerical) -> สร้าง Histogram
-            sns.histplot(df[selected_col], kde=True, ax=ax, color="blue", bins=20)
+            # --- สร้าง Histogram สำหรับข้อมูลแบบตัวเลข ---
+            # ปรับ bins='auto' เพื่อให้ระบบแบ่งจำนวนแท่งให้พอดีกับสายตา
+            sns.histplot(df[selected_col], kde=True, ax=ax, color="blue", bins='auto')
             
-            ax.set_title(f"การแจกแจงความน่าจะเป็นของ: {selected_col}", fontsize=14, fontweight='bold')
-            ax.set_ylabel("ความถี่", fontsize=12)
-            ax.set_xlabel(selected_col, fontsize=12)
+            ax.set_title(f"การกระจายตัวของข้อมูล: {readable_col}", fontsize=14, fontweight='bold')
+            ax.set_ylabel("จำนวนครั้งที่พบ (Frequency)", fontsize=12)
+            ax.set_xlabel(f"ค่าของ {readable_col}", fontsize=12)
+            ax.grid(axis='y', linestyle='--', alpha=0.5) # เพิ่มเส้นตารางบางๆ
             
-            # --- เพิ่มตัวเลขพร้อมลูกน้ำ (,) บนกราฟ Histogram ---
+            # ใส่ตัวเลขบนกราฟ
             max_height = max([p.get_height() for p in ax.patches]) if ax.patches else 1
             for p in ax.patches:
                 height = p.get_height()
-                if height > 0: # ป้องกันการเขียนเลข 0 รกกราฟ
+                if height > 0:
                     ax.text(p.get_x() + p.get_width() / 2., height + (max_height * 0.02),
                             f"{int(height):,}",
                             ha='center', va='bottom', fontsize=9)
             
             st.pyplot(fig)
+
+            # เพิ่มคำอธิบายภาษาคน
+            mean_val = df[selected_col].mean()
+            median_val = df[selected_col].median()
+            min_val = df[selected_col].min()
+            max_val = df[selected_col].max()
+
+            st.markdown("### 💡 สรุปคำอธิบายกราฟ (Insight)")
+            st.info(f"""
+            - **ภาพรวม:** ข้อมูลชุดนี้มีค่าเริ่มต้นตั้งแต่ **{min_val:,.2f}** และสูงสุดอยู่ที่ **{max_val:,.2f}**
+            - **ค่าเฉลี่ย (Mean):** โดยเฉลี่ยแล้วข้อมูลจะมีค่าอยู่ที่ประมาณ **{mean_val:,.2f}**
+            - **ค่ากึ่งกลาง (Median):** ข้อมูลกว่าครึ่งหนึ่งมีค่าน้อยกว่าหรือเท่ากับ **{median_val:,.2f}**
+            - 📈 **วิธีอ่านกราฟ:** แท่งที่สูงที่สุด คือช่วงตัวเลขที่พบได้บ่อยที่สุดในข้อมูลชุดนี้ (ส่วนเส้นโค้งสีน้ำเงินคือตัวช่วยดูแนวโน้มว่าข้อมูลส่วนใหญ่ไปกระจุกตัวอยู่ที่ค่าน้อยหรือค่ามาก)
+            """)
 
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการอ่านไฟล์: {e}")
