@@ -18,9 +18,15 @@ uploaded_file = st.sidebar.file_uploader("อัปโหลดไฟล์ (CSV
 
 if uploaded_file is not None:
     try:
-        # อ่านไฟล์ข้อมูล
+        # --- ระบบดักจับและแปลงการอ่านภาษาไทย (Encoding) ---
         if uploaded_file.name.endswith('csv'):
-            df = pd.read_csv(uploaded_file)
+            try:
+                # ลองอ่านแบบมาตรฐานสากล (UTF-8) ก่อน
+                df = pd.read_csv(uploaded_file, encoding='utf-8')
+            except UnicodeDecodeError:
+                # ถ้าอ่านภาษาไทยไม่ออก (Error) ให้ใช้การเข้ารหัสแบบ Windows Thai (TIS-620)
+                uploaded_file.seek(0) # รีเซ็ตไฟล์กลับไปจุดเริ่มต้นก่อนอ่านใหม่
+                df = pd.read_csv(uploaded_file, encoding='tis-620')
         else:
             df = pd.read_excel(uploaded_file)
             
@@ -56,9 +62,8 @@ if uploaded_file is not None:
         # 3. การวิเคราะห์ความน่าจะเป็นและกราฟ
         st.subheader("📊 วิเคราะห์เจาะลึกและกราฟ")
         
-        # --- ระบบกรองคอลัมน์ที่ไม่ต้องการ ---
-        # คำที่เราไม่อยากให้แสดงผลในตัวเลือกกราฟ (แก้ไขหรือพิมพ์เพิ่มในวงเล็บนี้ได้เลย)
-        ignore_keywords = ['id', 'รหัส', 'ลำดับ', 'จำนวน', 'no.', 'index']
+        # --- ระบบกรองคอลัมน์ที่ไม่ต้องการ (เพิ่ม วันที่, เวลา, Date) ---
+        ignore_keywords = ['id', 'รหัส', 'ลำดับ', 'จำนวน', 'no.', 'index', 'วันที่', 'date', 'เวลา', 'time', 'เดือน', 'ปี', 'year']
         
         # กรองคอลัมน์ โดยแปลงชื่อคอลัมน์เป็นตัวพิมพ์เล็กก่อนเพื่อเช็คคำต้องห้าม
         valid_columns = [
@@ -74,8 +79,6 @@ if uploaded_file is not None:
         selected_col = st.selectbox("เลือกตัวแปร (Column) ที่ต้องการวิเคราะห์:", valid_columns)
 
         # --- การตั้งค่ากราฟความละเอียดสูง ---
-        # figsize: ขยายขนาดความกว้าง-สูงของกราฟ
-        # dpi: เพิ่มความละเอียดเม็ดพิกเซล (ยิ่งเยอะยิ่งชัด)
         fig, ax = plt.subplots(figsize=(10, 5), dpi=200)
 
         # ตรวจสอบประเภทข้อมูลเพื่อวาดกราฟ
@@ -104,7 +107,6 @@ if uploaded_file is not None:
             
         else:
             # ข้อมูลแบบตัวเลข (Numerical) -> สร้าง Histogram
-            # bins=20 คือซอยความถี่ให้ละเอียดขึ้นเป็น 20 แท่ง
             sns.histplot(df[selected_col], kde=True, ax=ax, color="blue", bins=20)
             
             ax.set_title(f"การแจกแจงความน่าจะเป็นของ: {selected_col}", fontsize=14, fontweight='bold')
