@@ -2,12 +2,16 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import matplotlib as mpl
 
-# --- ส่วนที่เพิ่มใหม่: ตั้งค่าฟอนต์ภาษาไทยและเพิ่มความละเอียด ---
-plt.rcParams['font.family'] = 'Tahoma' 
+# --- ส่วนที่แก้ไขใหม่: ตั้งค่าฟอนต์ภาษาไทยแบบครอบคลุม ---
+# กำหนดรายชื่อฟอนต์ภาษาไทยยอดฮิตเผื่อไว้หลายๆ ตัว (รองรับทั้ง Windows และ Mac)
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = ['Tahoma', 'Leelawadee UI', 'Leelawadee', 'Thonburi', 'Cordia New', 'Arial Unicode MS']
 plt.rcParams['figure.dpi'] = 200 # เพิ่มความคมชัด (Resolution)
 # --------------------------------------------------------
 
+# (โค้ดส่วนอื่นๆ ตั้งแต่ st.set_page_config... คงไว้เหมือนเดิมทั้งหมดได้เลยครับ)
 # ตั้งค่าหน้าเว็บ
 st.set_page_config(page_title="ระบบวิเคราะห์ชุดข้อมูล", layout="wide")
 st.title("📊 ระบบวิเคราะห์ชุดข้อมูลและสถิติ")
