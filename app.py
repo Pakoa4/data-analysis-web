@@ -5,7 +5,7 @@ import seaborn as sns
 import os
 import urllib.request
 import matplotlib.font_manager as fm
-import google.generativeai as genai # นำเข้าเครื่องมือ AI
+import google.generativeai as genai 
 
 # --- ดาวน์โหลดและบังคับใช้ฟอนต์ภาษาไทย 100% ---
 font_url = "https://github.com/google/fonts/raw/main/ofl/prompt/Prompt-Regular.ttf"
@@ -33,7 +33,6 @@ api_key = st.sidebar.text_input("🔑 ใส่ API Key ของคุณที
 
 if uploaded_file is not None:
     try:
-        # ระบบดักจับและแปลงการอ่านภาษาไทย
         if uploaded_file.name.endswith('csv'):
             try:
                 df = pd.read_csv(uploaded_file, encoding='utf-8')
@@ -61,7 +60,6 @@ if uploaded_file is not None:
         # 2. การวิเคราะห์สถิติเบื้องต้น
         st.subheader("📈 สถิติเชิงพรรณนา (Descriptive Statistics)")
         
-        # เลือกเฉพาะคอลัมน์ตัวเลขมาโชว์ตารางนี้เพื่อป้องกัน Error
         numeric_df = df.select_dtypes(include=['number'])
         if not numeric_df.empty:
             desc_df = numeric_df.describe()
@@ -99,10 +97,9 @@ if uploaded_file is not None:
 
         tab1, tab2 = st.tabs(["📊 มุมมองกราฟ (Visualizations)", "🧠 สรุปข้อมูลเชิงลึก (AI Insights)"])
 
-        # --- แก้บัค Error: ตรวจจับประเภทข้อมูลตัวหนังสือให้ครอบคลุมขึ้น ---
         dtype_str = str(df[selected_col].dtype).lower()
         if 'object' in dtype_str or 'string' in dtype_str or 'category' in dtype_str or 'bool' in dtype_str:
-            # ================= ข้อมูลแบบหมวดหมู่ (Categorical) =================
+            # ================= ข้อมูลแบบหมวดหมู่ =================
             value_counts = df[selected_col].value_counts()
             probabilities = df[selected_col].value_counts(normalize=True) * 100
             
@@ -127,7 +124,7 @@ if uploaded_file is not None:
                 col_b.metric("กลุ่มที่พบมากที่สุด", f"{value_counts.index[0]}", f"{probabilities.values[0]:.2f}%")
                 col_c.metric("กลุ่มที่พบน้อยที่สุด", f"{value_counts.index[-1]}", f"{probabilities.values[-1]:.2f}%")
                 
-                # ------ ส่วนเรียกใช้งาน AI ------
+                # --- ส่วนเรียกใช้งาน AI ---
                 if st.button("✨ ให้ AI ช่วยวิเคราะห์ข้อมูลนี้", key="btn_cat"):
                     if api_key == "":
                         st.warning("⚠️ กรุณาใส่ API Key ที่แถบด้านซ้ายมือก่อนครับ")
@@ -135,21 +132,21 @@ if uploaded_file is not None:
                         with st.spinner("🤖 AI กำลังคิดและประมวลผล..."):
                             try:
                                 genai.configure(api_key=api_key)
-                                model = genai.GenerativeModel('gemini-1.5-flash')
+                                # เปลี่ยนมาใช้ gemini-pro ซึ่งเป็นรุ่นมาตรฐาน
+                                model = genai.GenerativeModel('gemini-pro')
                                 prompt = f"สวมบทบาทเป็นนักวิเคราะห์ข้อมูลมืออาชีพ ช่วยวิเคราะห์คอลัมน์ชื่อ '{readable_col}' ให้หน่อย. ข้อมูลนี้มีทั้งหมด {len(value_counts)} หมวดหมู่. หมวดหมู่ที่พบมากที่สุดคือ {value_counts.index[0]} (คิดเป็น {probabilities.values[0]:.2f}%) และน้อยที่สุดคือ {value_counts.index[-1]}. ช่วยเขียนอธิบายสั้นๆ ประมาณ 3-4 บรรทัด ให้คนทั่วไปอ่านแล้วเข้าใจง่ายๆ เป็นภาษาไทยว่าข้อมูลนี้สื่อถึงอะไรได้บ้าง"
                                 response = model.generate_content(prompt)
                                 st.success("**การวิเคราะห์จาก AI:**")
                                 st.write(response.text)
                             except Exception as e:
                                 st.error(f"เกิดข้อผิดพลาดในการเรียก AI: {e}")
-                # -------------------------------
                 
                 st.write("**ตารางรายละเอียดทุกหมวดหมู่:**")
                 detail_df = pd.DataFrame({"จำนวน (Count)": value_counts.values, "สัดส่วน (Percentage)": probabilities.values}, index=value_counts.index)
                 st.dataframe(detail_df.style.format({"จำนวน (Count)": "{:,.0f}", "สัดส่วน (Percentage)": "{:,.2f}%"}), use_container_width=True)
 
         else:
-            # ================= ข้อมูลแบบตัวเลข (Numerical) =================
+            # ================= ข้อมูลแบบตัวเลข =================
             with tab1:
                 fig, (ax_box, ax_hist) = plt.subplots(2, sharex=True, gridspec_kw={"height_ratios": (.20, .80)}, figsize=(10, 6), dpi=200)
                 sns.boxplot(x=df[selected_col], ax=ax_box, color="lightblue")
@@ -181,7 +178,7 @@ if uploaded_file is not None:
                 col_c.metric("ค่าน้อยที่สุด (Min)", f"{min_val:,.2f}")
                 col_d.metric("ค่ามากที่สุด (Max)", f"{max_val:,.2f}")
                 
-                # ------ ส่วนเรียกใช้งาน AI ------
+                # --- ส่วนเรียกใช้งาน AI ---
                 if st.button("✨ ให้ AI ช่วยวิเคราะห์ข้อมูลนี้", key="btn_num"):
                     if api_key == "":
                         st.warning("⚠️ กรุณาใส่ API Key ที่แถบด้านซ้ายมือก่อนครับ")
@@ -189,14 +186,14 @@ if uploaded_file is not None:
                         with st.spinner("🤖 AI กำลังคิดและประมวลผล..."):
                             try:
                                 genai.configure(api_key=api_key)
-                                model = genai.GenerativeModel('gemini-1.5-flash')
+                                # เปลี่ยนมาใช้ gemini-pro ซึ่งเป็นรุ่นมาตรฐาน
+                                model = genai.GenerativeModel('gemini-pro')
                                 prompt = f"สวมบทบาทเป็นนักวิเคราะห์ข้อมูลมืออาชีพ ช่วยอธิบายข้อมูลคอลัมน์ '{readable_col}' ต่อไปนี้ให้คนทั่วไปฟังเป็นภาษาไทยแบบเข้าใจง่าย: ค่าเฉลี่ยคือ {mean_val:.2f}, ค่ากึ่งกลางคือ {median_val:.2f}, ต่ำสุดคือ {min_val:.2f}, และสูงสุดคือ {max_val:.2f}. ตัวเลขพวกนี้กำลังบอกเทรนด์หรือพฤติกรรมอะไรได้บ้าง? (เขียนสรุปเป็น Bullet อ่านง่ายๆ 3-4 ข้อ)"
                                 response = model.generate_content(prompt)
                                 st.success("**การวิเคราะห์จาก AI:**")
                                 st.write(response.text)
                             except Exception as e:
                                 st.error(f"เกิดข้อผิดพลาดในการเรียก AI: {e}")
-                # -------------------------------
 
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการอ่านไฟล์: {e}")
