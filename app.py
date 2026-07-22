@@ -21,7 +21,7 @@ plt.rcParams['figure.dpi'] = 200
 
 # ตั้งค่าหน้าเว็บ
 st.set_page_config(page_title="ระบบวิเคราะห์ชุดข้อมูลด้วย AI", layout="wide")
-st.title("📊 ระบบวิเคราะห์ชุดข้อมูลและสถิติ")
+st.title("📊 ระบบวิเคราะห์ชุดข้อมูลและสถิติ (Powered by Gemini AI)")
 
 # 1. ส่วนรับไฟล์จากผู้ใช้งาน (File Uploader)
 st.sidebar.header("นำเข้าข้อมูล")
@@ -95,35 +95,34 @@ if uploaded_file is not None:
         selected_col = st.selectbox("📌 เลือกตัวแปร (Column) ที่ต้องการวิเคราะห์แบบเจาะลึก:", valid_columns)
         readable_col = str(selected_col).replace('_', ' ').title()
 
+        # --- ระบบตรวจจับประเภทข้อมูลฉบับอัปเกรด (แยกเป็น 3 กรณี) ---
         dtype_str = str(df[selected_col].dtype).lower()
-        if 'object' in dtype_str or 'string' in dtype_str or 'category' in dtype_str or 'bool' in dtype_str:
-            # ================= ข้อมูลแบบหมวดหมู่ (แยกเป็น 3 แท็บ) =================
+        unique_count = df[selected_col].nunique()
+        
+        is_text = ('object' in dtype_str or 'string' in dtype_str or 'category' in dtype_str or 'bool' in dtype_str)
+        is_numeric = ('int' in dtype_str or 'float' in dtype_str)
+
+        if is_text:
+            # ================= กรณีที่ 1: ข้อมูลแบบข้อความ (แสดง 3 แท็บ) =================
             value_counts = df[selected_col].value_counts()
             probabilities = df[selected_col].value_counts(normalize=True) * 100
             
-            # สร้าง 3 แท็บแยกกราฟแท่งและกราฟวงกลม
             tab1, tab2, tab3 = st.tabs(["📊 กราฟแท่ง (Bar Chart)", "🍩 กราฟวงกลม (Pie Chart)", "🧠 สรุปข้อมูลเชิงลึก (AI Insights)"])
             
             with tab1:
-                # กราฟแท่ง (Bar Chart)
                 fig, ax = plt.subplots(figsize=(10, 5), dpi=200)
                 sns.barplot(x=value_counts.index, y=value_counts.values, ax=ax, palette="viridis")
-                
                 ax.set_title(f"จำนวนข้อมูลแต่ละหมวดหมู่: {readable_col}", fontsize=14, fontweight='bold')
                 ax.set_ylabel("จำนวน (ครั้ง)", fontsize=12)
                 ax.set_xlabel(readable_col, fontsize=12)
                 ax.grid(axis='y', linestyle='--', alpha=0.5)
                 plt.xticks(rotation=45, ha='right')
-                
                 for i, v in enumerate(value_counts.values):
                     ax.text(i, v + (max(value_counts.values) * 0.02), f"{v:,}", ha='center', va='bottom', fontsize=10)
                 st.pyplot(fig)
 
             with tab2:
-                # กราฟวงกลม (Pie Chart)
                 fig_pie, ax_pie = plt.subplots(figsize=(8, 8), dpi=200)
-                
-                # ป้องกันกราฟเละ ถ้ารายการหมวดหมู่มีมากกว่า 10 อัน ให้มัดรวมที่เหลือเป็น "อื่นๆ"
                 if len(value_counts) > 10:
                     top_10 = value_counts[:10]
                     others = pd.Series([value_counts[10:].sum()], index=['อื่นๆ (Others)'])
@@ -131,28 +130,19 @@ if uploaded_file is not None:
                 else:
                     pie_data = value_counts
 
-                # วาดกราฟวงกลม
                 wedges, texts, autotexts = ax_pie.pie(
-                    pie_data.values, 
-                    labels=pie_data.index, 
-                    autopct='%1.1f%%', # โชว์เปอร์เซ็นต์ทศนิยม 1 ตำแหน่ง
-                    startangle=90, 
-                    colors=sns.color_palette("pastel", len(pie_data)),
-                    wedgeprops={'edgecolor': 'white', 'linewidth': 1.5} # ใส่เส้นขอบสีขาวให้ดูสวย
+                    pie_data.values, labels=pie_data.index, autopct='%1.1f%%', 
+                    startangle=90, colors=sns.color_palette("pastel", len(pie_data)),
+                    wedgeprops={'edgecolor': 'white', 'linewidth': 1.5}
                 )
-                
-                # ปรับแต่งขนาดฟอนต์ในวงกลม
-                for text in texts:
-                    text.set_fontsize(10)
+                for text in texts: text.set_fontsize(10)
                 for autotext in autotexts:
                     autotext.set_fontsize(10)
                     autotext.set_fontweight('bold')
-                    
                 ax_pie.set_title(f"สัดส่วนเปอร์เซ็นต์ (Pie Chart): {readable_col}", fontsize=14, fontweight='bold')
                 st.pyplot(fig_pie)
                 
             with tab3:
-                # สรุปข้อมูลเชิงลึกและ AI (AI Insights)
                 st.markdown(f"### 💡 วิเคราะห์เจาะลึกหมวดหมู่: {readable_col}")
                 col_a, col_b, col_c = st.columns(3)
                 col_a.metric("ความหลากหลายทั้งหมด", f"{len(value_counts)} รูปแบบ")
@@ -160,8 +150,7 @@ if uploaded_file is not None:
                 col_c.metric("กลุ่มที่พบน้อยที่สุด", f"{value_counts.index[-1]}", f"{probabilities.values[-1]:.2f}%")
                 
                 if st.button("✨ ให้ AI ช่วยวิเคราะห์ข้อมูลนี้", key="btn_cat"):
-                    if api_key == "":
-                        st.warning("⚠️ กรุณาใส่ API Key ที่แถบด้านซ้ายมือก่อนครับ")
+                    if api_key == "": st.warning("⚠️ กรุณาใส่ API Key ที่แถบด้านซ้ายมือก่อนครับ")
                     else:
                         with st.spinner("🤖 AI กำลังคิดและประมวลผล..."):
                             try:
@@ -178,8 +167,95 @@ if uploaded_file is not None:
                 detail_df = pd.DataFrame({"จำนวน (Count)": value_counts.values, "สัดส่วน (Percentage)": probabilities.values}, index=value_counts.index)
                 st.dataframe(detail_df.style.format({"จำนวน (Count)": "{:,.0f}", "สัดส่วน (Percentage)": "{:,.2f}%"}), use_container_width=True)
 
-        else:
-            # ================= ข้อมูลแบบตัวเลข (แยกเป็น 2 แท็บเหมือนเดิม) =================
+        elif is_numeric and unique_count <= 15:
+            # ================= กรณีที่ 2: ตัวเลขที่มีความหลากหลายน้อย (แสดง 4 แท็บ ดูได้ทุกกราฟ!) =================
+            value_counts = df[selected_col].value_counts()
+            probabilities = df[selected_col].value_counts(normalize=True) * 100
+            
+            tab1, tab2, tab3, tab4 = st.tabs(["📊 กราฟแท่ง (Bar)", "🍩 กราฟวงกลม (Pie)", "📈 กราฟการกระจายตัว (Hist)", "🧠 สรุปข้อมูลเชิงลึก (AI Insights)"])
+            
+            with tab1: # Bar
+                fig, ax = plt.subplots(figsize=(10, 5), dpi=200)
+                sns.barplot(x=value_counts.index, y=value_counts.values, ax=ax, palette="viridis")
+                ax.set_title(f"จำนวนข้อมูลแต่ละกลุ่ม: {readable_col}", fontsize=14, fontweight='bold')
+                ax.set_ylabel("จำนวน (ครั้ง)", fontsize=12)
+                ax.set_xlabel(readable_col, fontsize=12)
+                ax.grid(axis='y', linestyle='--', alpha=0.5)
+                plt.xticks(rotation=45, ha='right')
+                for i, v in enumerate(value_counts.values):
+                    ax.text(i, v + (max(value_counts.values) * 0.02), f"{v:,}", ha='center', va='bottom', fontsize=10)
+                st.pyplot(fig)
+                
+            with tab2: # Pie
+                fig_pie, ax_pie = plt.subplots(figsize=(8, 8), dpi=200)
+                if len(value_counts) > 10:
+                    top_10 = value_counts[:10]
+                    others = pd.Series([value_counts[10:].sum()], index=['อื่นๆ (Others)'])
+                    pie_data = pd.concat([top_10, others])
+                else:
+                    pie_data = value_counts
+
+                wedges, texts, autotexts = ax_pie.pie(
+                    pie_data.values, labels=pie_data.index, autopct='%1.1f%%', 
+                    startangle=90, colors=sns.color_palette("pastel", len(pie_data)),
+                    wedgeprops={'edgecolor': 'white', 'linewidth': 1.5}
+                )
+                for text in texts: text.set_fontsize(10)
+                for autotext in autotexts:
+                    autotext.set_fontsize(10)
+                    autotext.set_fontweight('bold')
+                ax_pie.set_title(f"สัดส่วนเปอร์เซ็นต์ (Pie Chart): {readable_col}", fontsize=14, fontweight='bold')
+                st.pyplot(fig_pie)
+            
+            with tab3: # Hist/Box
+                fig, (ax_box, ax_hist) = plt.subplots(2, sharex=True, gridspec_kw={"height_ratios": (.20, .80)}, figsize=(10, 6), dpi=200)
+                sns.boxplot(x=df[selected_col], ax=ax_box, color="lightblue")
+                ax_box.set_title(f"การกระจายตัวและค่าผิดปกติ (Outliers) ของ: {readable_col}", fontsize=14, fontweight='bold')
+                ax_box.set_xlabel('')
+                
+                sns.histplot(df[selected_col], kde=True, ax=ax_hist, color="blue", bins='auto')
+                ax_hist.set_ylabel("จำนวนครั้งที่พบ (Frequency)", fontsize=12)
+                ax_hist.set_xlabel(f"ค่าของ {readable_col}", fontsize=12)
+                ax_hist.grid(axis='y', linestyle='--', alpha=0.5)
+                
+                max_height = max([p.get_height() for p in ax_hist.patches]) if ax_hist.patches else 1
+                for p in ax_hist.patches:
+                    height = p.get_height()
+                    if height > 0:
+                        ax_hist.text(p.get_x() + p.get_width() / 2., height + (max_height * 0.02), f"{int(height):,}", ha='center', va='bottom', fontsize=9)
+                st.pyplot(fig)
+                
+            with tab4: # AI Insights
+                mean_val = df[selected_col].mean()
+                median_val = df[selected_col].median()
+                
+                st.markdown(f"### 💡 วิเคราะห์เจาะลึกตัวเลขแบบกลุ่ม: {readable_col}")
+                col_a, col_b, col_c, col_d = st.columns(4)
+                col_a.metric("ความหลากหลาย", f"{len(value_counts)} รูปแบบ")
+                col_b.metric("กลุ่มที่พบมากสุด", f"{value_counts.index[0]}")
+                col_c.metric("ค่าเฉลี่ย (Mean)", f"{mean_val:,.2f}")
+                col_d.metric("ค่ากึ่งกลาง (Median)", f"{median_val:,.2f}")
+                
+                if st.button("✨ ให้ AI ช่วยวิเคราะห์ข้อมูลนี้", key="btn_both"):
+                    if api_key == "": st.warning("⚠️ กรุณาใส่ API Key ที่แถบด้านซ้ายมือก่อนครับ")
+                    else:
+                        with st.spinner("🤖 AI กำลังคิดและประมวลผล..."):
+                            try:
+                                genai.configure(api_key=api_key)
+                                model = genai.GenerativeModel('gemini-pro')
+                                prompt = f"สวมบทบาทเป็นนักวิเคราะห์ข้อมูลมืออาชีพ ช่วยอธิบายข้อมูลคอลัมน์ '{readable_col}' ซึ่งเป็นตัวเลขที่มีทั้งหมด {len(value_counts)} รูปแบบ. ค่าเฉลี่ยคือ {mean_val:.2f}, และตัวเลขที่คนตอบมากที่สุดคือ {value_counts.index[0]} (คิดเป็น {probabilities.values[0]:.2f}%). ช่วยสรุปเป็น Bullet 3-4 ข้อให้อ่านง่ายๆ ว่าตัวเลขพวกนี้บอกพฤติกรรมหรือเทรนด์อะไรได้บ้าง"
+                                response = model.generate_content(prompt)
+                                st.success("**การวิเคราะห์จาก AI:**")
+                                st.write(response.text)
+                            except Exception as e:
+                                st.error(f"เกิดข้อผิดพลาดในการเรียก AI: {e}")
+                
+                st.write("**ตารางรายละเอียดทุกหมวดหมู่:**")
+                detail_df = pd.DataFrame({"จำนวน (Count)": value_counts.values, "สัดส่วน (Percentage)": probabilities.values}, index=value_counts.index)
+                st.dataframe(detail_df.style.format({"จำนวน (Count)": "{:,.0f}", "สัดส่วน (Percentage)": "{:,.2f}%"}), use_container_width=True)
+
+        elif is_numeric:
+            # ================= กรณีที่ 3: ข้อมูลแบบตัวเลขล้วนๆ (แสดง 2 แท็บ) =================
             tab1, tab2 = st.tabs(["📊 มุมมองกราฟ (Visualizations)", "🧠 สรุปข้อมูลเชิงลึก (AI Insights)"])
             
             with tab1:
@@ -214,8 +290,7 @@ if uploaded_file is not None:
                 col_d.metric("ค่ามากที่สุด (Max)", f"{max_val:,.2f}")
                 
                 if st.button("✨ ให้ AI ช่วยวิเคราะห์ข้อมูลนี้", key="btn_num"):
-                    if api_key == "":
-                        st.warning("⚠️ กรุณาใส่ API Key ที่แถบด้านซ้ายมือก่อนครับ")
+                    if api_key == "": st.warning("⚠️ กรุณาใส่ API Key ที่แถบด้านซ้ายมือก่อนครับ")
                     else:
                         with st.spinner("🤖 AI กำลังคิดและประมวลผล..."):
                             try:
@@ -227,6 +302,9 @@ if uploaded_file is not None:
                                 st.write(response.text)
                             except Exception as e:
                                 st.error(f"เกิดข้อผิดพลาดในการเรียก AI: {e}")
+
+        else:
+            st.warning("⚠️ ประเภทข้อมูลนี้ไม่สามารถนำมาสร้างกราฟได้ครับ")
 
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการอ่านไฟล์: {e}")
