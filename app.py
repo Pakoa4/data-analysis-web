@@ -21,7 +21,7 @@ plt.rcParams['figure.dpi'] = 200
 
 # ตั้งค่าหน้าเว็บ
 st.set_page_config(page_title="ระบบวิเคราะห์ชุดข้อมูลด้วย AI", layout="wide")
-st.title("📊 ระบบวิเคราะห์ชุดข้อมูลและสถิติ (Powered by Gemini AI)")
+st.title("📊 ระบบวิเคราะห์ชุดข้อมูลและสถิติ")
 
 # 1. ส่วนรับไฟล์จากผู้ใช้งาน (File Uploader)
 st.sidebar.header("นำเข้าข้อมูล")
@@ -95,19 +95,21 @@ if uploaded_file is not None:
         selected_col = st.selectbox("📌 เลือกตัวแปร (Column) ที่ต้องการวิเคราะห์แบบเจาะลึก:", valid_columns)
         readable_col = str(selected_col).replace('_', ' ').title()
 
-        tab1, tab2 = st.tabs(["📊 มุมมองกราฟ (Visualizations)", "🧠 สรุปข้อมูลเชิงลึก (AI Insights)"])
-
         dtype_str = str(df[selected_col].dtype).lower()
         if 'object' in dtype_str or 'string' in dtype_str or 'category' in dtype_str or 'bool' in dtype_str:
-            # ================= ข้อมูลแบบหมวดหมู่ =================
+            # ================= ข้อมูลแบบหมวดหมู่ (แยกเป็น 3 แท็บ) =================
             value_counts = df[selected_col].value_counts()
             probabilities = df[selected_col].value_counts(normalize=True) * 100
             
+            # สร้าง 3 แท็บแยกกราฟแท่งและกราฟวงกลม
+            tab1, tab2, tab3 = st.tabs(["📊 กราฟแท่ง (Bar Chart)", "🍩 กราฟวงกลม (Pie Chart)", "🧠 สรุปข้อมูลเชิงลึก (AI Insights)"])
+            
             with tab1:
+                # กราฟแท่ง (Bar Chart)
                 fig, ax = plt.subplots(figsize=(10, 5), dpi=200)
                 sns.barplot(x=value_counts.index, y=value_counts.values, ax=ax, palette="viridis")
                 
-                ax.set_title(f"สัดส่วนของข้อมูล: {readable_col}", fontsize=14, fontweight='bold')
+                ax.set_title(f"จำนวนข้อมูลแต่ละหมวดหมู่: {readable_col}", fontsize=14, fontweight='bold')
                 ax.set_ylabel("จำนวน (ครั้ง)", fontsize=12)
                 ax.set_xlabel(readable_col, fontsize=12)
                 ax.grid(axis='y', linestyle='--', alpha=0.5)
@@ -116,15 +118,47 @@ if uploaded_file is not None:
                 for i, v in enumerate(value_counts.values):
                     ax.text(i, v + (max(value_counts.values) * 0.02), f"{v:,}", ha='center', va='bottom', fontsize=10)
                 st.pyplot(fig)
-                
+
             with tab2:
+                # กราฟวงกลม (Pie Chart)
+                fig_pie, ax_pie = plt.subplots(figsize=(8, 8), dpi=200)
+                
+                # ป้องกันกราฟเละ ถ้ารายการหมวดหมู่มีมากกว่า 10 อัน ให้มัดรวมที่เหลือเป็น "อื่นๆ"
+                if len(value_counts) > 10:
+                    top_10 = value_counts[:10]
+                    others = pd.Series([value_counts[10:].sum()], index=['อื่นๆ (Others)'])
+                    pie_data = pd.concat([top_10, others])
+                else:
+                    pie_data = value_counts
+
+                # วาดกราฟวงกลม
+                wedges, texts, autotexts = ax_pie.pie(
+                    pie_data.values, 
+                    labels=pie_data.index, 
+                    autopct='%1.1f%%', # โชว์เปอร์เซ็นต์ทศนิยม 1 ตำแหน่ง
+                    startangle=90, 
+                    colors=sns.color_palette("pastel", len(pie_data)),
+                    wedgeprops={'edgecolor': 'white', 'linewidth': 1.5} # ใส่เส้นขอบสีขาวให้ดูสวย
+                )
+                
+                # ปรับแต่งขนาดฟอนต์ในวงกลม
+                for text in texts:
+                    text.set_fontsize(10)
+                for autotext in autotexts:
+                    autotext.set_fontsize(10)
+                    autotext.set_fontweight('bold')
+                    
+                ax_pie.set_title(f"สัดส่วนเปอร์เซ็นต์ (Pie Chart): {readable_col}", fontsize=14, fontweight='bold')
+                st.pyplot(fig_pie)
+                
+            with tab3:
+                # สรุปข้อมูลเชิงลึกและ AI (AI Insights)
                 st.markdown(f"### 💡 วิเคราะห์เจาะลึกหมวดหมู่: {readable_col}")
                 col_a, col_b, col_c = st.columns(3)
                 col_a.metric("ความหลากหลายทั้งหมด", f"{len(value_counts)} รูปแบบ")
                 col_b.metric("กลุ่มที่พบมากที่สุด", f"{value_counts.index[0]}", f"{probabilities.values[0]:.2f}%")
                 col_c.metric("กลุ่มที่พบน้อยที่สุด", f"{value_counts.index[-1]}", f"{probabilities.values[-1]:.2f}%")
                 
-                # --- ส่วนเรียกใช้งาน AI ---
                 if st.button("✨ ให้ AI ช่วยวิเคราะห์ข้อมูลนี้", key="btn_cat"):
                     if api_key == "":
                         st.warning("⚠️ กรุณาใส่ API Key ที่แถบด้านซ้ายมือก่อนครับ")
@@ -132,7 +166,6 @@ if uploaded_file is not None:
                         with st.spinner("🤖 AI กำลังคิดและประมวลผล..."):
                             try:
                                 genai.configure(api_key=api_key)
-                                # เปลี่ยนมาใช้ gemini-pro ซึ่งเป็นรุ่นมาตรฐาน
                                 model = genai.GenerativeModel('gemini-pro')
                                 prompt = f"สวมบทบาทเป็นนักวิเคราะห์ข้อมูลมืออาชีพ ช่วยวิเคราะห์คอลัมน์ชื่อ '{readable_col}' ให้หน่อย. ข้อมูลนี้มีทั้งหมด {len(value_counts)} หมวดหมู่. หมวดหมู่ที่พบมากที่สุดคือ {value_counts.index[0]} (คิดเป็น {probabilities.values[0]:.2f}%) และน้อยที่สุดคือ {value_counts.index[-1]}. ช่วยเขียนอธิบายสั้นๆ ประมาณ 3-4 บรรทัด ให้คนทั่วไปอ่านแล้วเข้าใจง่ายๆ เป็นภาษาไทยว่าข้อมูลนี้สื่อถึงอะไรได้บ้าง"
                                 response = model.generate_content(prompt)
@@ -146,7 +179,9 @@ if uploaded_file is not None:
                 st.dataframe(detail_df.style.format({"จำนวน (Count)": "{:,.0f}", "สัดส่วน (Percentage)": "{:,.2f}%"}), use_container_width=True)
 
         else:
-            # ================= ข้อมูลแบบตัวเลข =================
+            # ================= ข้อมูลแบบตัวเลข (แยกเป็น 2 แท็บเหมือนเดิม) =================
+            tab1, tab2 = st.tabs(["📊 มุมมองกราฟ (Visualizations)", "🧠 สรุปข้อมูลเชิงลึก (AI Insights)"])
+            
             with tab1:
                 fig, (ax_box, ax_hist) = plt.subplots(2, sharex=True, gridspec_kw={"height_ratios": (.20, .80)}, figsize=(10, 6), dpi=200)
                 sns.boxplot(x=df[selected_col], ax=ax_box, color="lightblue")
@@ -178,7 +213,6 @@ if uploaded_file is not None:
                 col_c.metric("ค่าน้อยที่สุด (Min)", f"{min_val:,.2f}")
                 col_d.metric("ค่ามากที่สุด (Max)", f"{max_val:,.2f}")
                 
-                # --- ส่วนเรียกใช้งาน AI ---
                 if st.button("✨ ให้ AI ช่วยวิเคราะห์ข้อมูลนี้", key="btn_num"):
                     if api_key == "":
                         st.warning("⚠️ กรุณาใส่ API Key ที่แถบด้านซ้ายมือก่อนครับ")
@@ -186,7 +220,6 @@ if uploaded_file is not None:
                         with st.spinner("🤖 AI กำลังคิดและประมวลผล..."):
                             try:
                                 genai.configure(api_key=api_key)
-                                # เปลี่ยนมาใช้ gemini-pro ซึ่งเป็นรุ่นมาตรฐาน
                                 model = genai.GenerativeModel('gemini-pro')
                                 prompt = f"สวมบทบาทเป็นนักวิเคราะห์ข้อมูลมืออาชีพ ช่วยอธิบายข้อมูลคอลัมน์ '{readable_col}' ต่อไปนี้ให้คนทั่วไปฟังเป็นภาษาไทยแบบเข้าใจง่าย: ค่าเฉลี่ยคือ {mean_val:.2f}, ค่ากึ่งกลางคือ {median_val:.2f}, ต่ำสุดคือ {min_val:.2f}, และสูงสุดคือ {max_val:.2f}. ตัวเลขพวกนี้กำลังบอกเทรนด์หรือพฤติกรรมอะไรได้บ้าง? (เขียนสรุปเป็น Bullet อ่านง่ายๆ 3-4 ข้อ)"
                                 response = model.generate_content(prompt)
